@@ -1,6 +1,7 @@
 ## run: starts demo http services
 .PHONY: run
-run: run-containers
+run: run-containers	
+
 
 run-containers:
 	docker run --rm -d -p 9001:80 --name server1 kennethreitz/httpbin
@@ -22,5 +23,10 @@ help:
 ## run: starts demo http services
 .PHONY: run-proxy-server
 run-proxy-server:
-	cd cmd && go build -o ../bin/rp && ../bin/rp run
+	cd cmd && go build -o ../bin/rp && ../bin/rp run -c "../data/config.yaml"
 
+## buildMac: builds for mac
+
+.PHONY: build
+build: 
+	GOARCH=amd64 go build -o ./bin/rp ./path/to/your/main.go

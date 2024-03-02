@@ -17,12 +17,8 @@ var (
 	server *http.Server
 )
 
-func Run() error {
+func ConfigRun(cfg *configs.Configuration) error {
 	// Load configurations from the config file.
-	config, err := configs.ReadConfig()
-	if err != nil {
-		return fmt.Errorf("could not load configuration: %v", err)
-	}
 
 	// Create a new router.
 	mux := http.NewServeMux()
@@ -31,7 +27,7 @@ func Run() error {
 	mux.HandleFunc("/ping", ping)
 
 	// Register configured routes.
-	for _, resource := range config.Resources {
+	for _, resource := range cfg.Resources {
 		destURL, _ := url.Parse(resource.Destination_URL)
 		proxy := NewProxy(destURL)
 		mux.HandleFunc(resource.Endpoint, ProxyRequestHandler(proxy, destURL, resource.Endpoint))
@@ -39,7 +35,7 @@ func Run() error {
 
 	// Initialize the HTTP server.
 	server = &http.Server{
-		Addr:    config.Server.Host + ":" + config.Server.Listen_port,
+		Addr:    cfg.Server.Host + ":" + cfg.Server.Listen_port,
 		Handler: mux,
 	}
 
