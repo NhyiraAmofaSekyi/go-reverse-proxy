@@ -64,7 +64,7 @@ func ConfigRun(cfg *configs.Configuration) error {
 
 	// Attempt to gracefully shut down the server.
 	if err := server.Shutdown(ctx); err != nil {
-		return fmt.Errorf("Server shutdown failed: %v", err)
+		return fmt.Errorf("server shutdown failed: %v", err)
 	}
 
 	fmt.Println("Server gracefully stopped.")
