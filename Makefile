@@ -25,8 +25,5 @@ help:
 run-proxy-server:
 	cd cmd && go build -o ../bin/rp && ../bin/rp run -c "../data/config.yaml"
 
-## buildMac: builds for mac
 
-.PHONY: build
-build: 
-	GOARCH=amd64 go build -o ./bin/rp ./path/to/your/main.go
+
