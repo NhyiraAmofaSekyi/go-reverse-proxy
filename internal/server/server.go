@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -27,10 +28,23 @@ func ConfigRun(cfg *configs.Configuration) error {
 	mux.HandleFunc("/ping", ping)
 
 	// Register configured routes.
+	// for _, resource := range cfg.Resources {
+	// 	destURL, _ := url.Parse(resource.Destination_URL)
+	// 	proxy := NewProxy(destURL)
+	// 	mux.HandleFunc(resource.Endpoint, ProxyRequestHandler(proxy, destURL, resource.Endpoint))
+	// }
+
 	for _, resource := range cfg.Resources {
-		destURL, _ := url.Parse(resource.Destination_URL)
-		proxy := NewProxy(destURL)
-		mux.HandleFunc(resource.Endpoint, ProxyRequestHandler(proxy, destURL, resource.Endpoint))
+		destURL, err := url.Parse(resource.Destination_URL)
+		if err != nil {
+			log.Printf("Error parsing URL '%s': %v", resource.Destination_URL, err)
+			continue // Skip this resource if the URL is invalid
+		}
+		// Use NewProxyV0 with the destination URL and the resource's endpoint
+		proxy := NewProxyV0(destURL, resource.Endpoint)
+
+		// Register the handler using ProxyRequestHandlerV0, passing the created proxy, destination URL, and endpoint
+		mux.HandleFunc(resource.Endpoint, ProxyRequestHandlerV0(proxy, destURL, resource.Endpoint))
 	}
 
 	// Initialize the HTTP server.
