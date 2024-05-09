@@ -1,4 +1,4 @@
-# Simple Reverse Proxy Application
+# Simple Reverse Proxy 
 
 This application serves as a simple reverse proxy, forwarding requests to different backend services based on the provided configuration.
 
