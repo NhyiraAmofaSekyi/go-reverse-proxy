@@ -2,6 +2,7 @@ package server
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -21,6 +22,7 @@ func NewProxy(target *url.URL) *httputil.ReverseProxy {
 }
 func ProxyRequestHandler(proxy *httputil.ReverseProxy, url *url.URL, endpoint string) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
+
 		startTime := time.Now() // Capture the start time
 
 		fmt.Printf("[ Reverse Proxy ] Request received at %s at %s\n", r.URL, time.Now().UTC())
@@ -52,14 +54,18 @@ func NewProxyV0(target *url.URL, endpoint string) *httputil.ReverseProxy {
 	// Use the Rewrite function to safely modify the outgoing request
 	proxy.Rewrite = func(proxyReq *httputil.ProxyRequest) {
 		// Example: Setting the X-Example-Header on the outgoing request
-		proxyReq.Out.Header.Set("X-Example-Header", "value")
+		logIncomingRequest(proxyReq.In)
 		proxyReq.Out.URL.Host = target.Host
 		proxyReq.Out.URL.Scheme = target.Scheme
-		proxyReq.Out.Header.Set("X-Forwarded-Host", proxyReq.Out.Header.Get("Host"))
+		proxyReq.Out.Header.Set("X-Forwarded-Host", proxyReq.In.Host)
+		log.Print("orginal host: ", proxyReq.In.Host)
 		proxyReq.Out.Host = target.Host
 
 		// Trim the endpoint prefix if needed
 		originalPath := proxyReq.Out.URL.Path
+		logOutgoingRequest(proxyReq.Out)
+		log.Print("orginal path: ", originalPath)
+		log.Print("new path: ", proxyReq.Out.URL.Path)
 		proxyReq.Out.URL.Path = strings.TrimPrefix(originalPath, endpoint)
 	}
 	return proxy
@@ -76,5 +82,22 @@ func ProxyRequestHandlerV0(proxy *httputil.ReverseProxy, url *url.URL, endpoint 
 
 		duration := time.Since(startTime) // Calculate the duration
 		fmt.Printf("[ Reverse Proxy ] Redirected request to %s in %v at %s\n", r.URL, duration, time.Now().UTC())
+	}
+}
+
+func logOutgoingRequest(req *http.Request) {
+	dump, err := httputil.DumpRequestOut(req, true)
+	if err != nil {
+		log.Printf("Failed to dump outgoing request: %v", err)
+	} else {
+		log.Printf("Modified outgoing request: %v", string(dump))
+	}
+}
+func logIncomingRequest(req *http.Request) {
+	dump, err := httputil.DumpRequest(req, true)
+	if err != nil {
+		log.Printf("Failed to dump outgoing request: %v", err)
+	} else {
+		log.Printf("incoming request: %v", string(dump))
 	}
 }
