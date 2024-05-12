@@ -53,7 +53,7 @@ func NewProxyV0(target *url.URL, endpoint string) *httputil.ReverseProxy {
 
 	// Use the Rewrite function to safely modify the outgoing request
 	proxy.Rewrite = func(proxyReq *httputil.ProxyRequest) {
-		// Example: Setting the X-Example-Header on the outgoing request
+
 		logIncomingRequest(proxyReq.In)
 		proxyReq.Out.URL.Host = target.Host
 		proxyReq.Out.URL.Scheme = target.Scheme
@@ -61,23 +61,25 @@ func NewProxyV0(target *url.URL, endpoint string) *httputil.ReverseProxy {
 		log.Print("orginal host: ", proxyReq.In.Host)
 		proxyReq.Out.Host = target.Host
 
-		// Trim the endpoint prefix if needed
 		originalPath := proxyReq.Out.URL.Path
 		logOutgoingRequest(proxyReq.Out)
 		log.Print("orginal path: ", originalPath)
 		log.Print("new path: ", proxyReq.Out.URL.Path)
 		proxyReq.Out.URL.Path = strings.TrimPrefix(originalPath, endpoint)
 	}
+	proxy.ModifyResponse = func(r *http.Response) error {
+		r.Header.Set("Server", "rp")
+		return nil
+	}
 	return proxy
 }
 
-func ProxyRequestHandlerV0(proxy *httputil.ReverseProxy, url *url.URL, endpoint string) func(http.ResponseWriter, *http.Request) {
+func ProxyRequestHandlerV0(proxy *httputil.ReverseProxy) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		startTime := time.Now() // Capture the start time
 
 		fmt.Printf("[ Reverse Proxy ] Request received at %s at %s\n", r.URL, time.Now().UTC())
 
-		// Note: Modifications moved to the Rewrite function of the ReverseProxy setup
 		proxy.ServeHTTP(w, r)
 
 		duration := time.Since(startTime) // Calculate the duration

@@ -1,52 +1,59 @@
-hop by hop 
-https://www.ory.sh/hop-by-hop-header-vulnerability-go-standard-library-reverse-proxy/
-
-rp 
-https://blog.joshsoftware.com/2021/05/25/simple-and-powerful-reverseproxy-in-go/
-
-credited servers 
-https://prabeshthapa.medium.com/learn-reverse-proxy-by-creating-one-yourself-using-go-87be2a29d1e
 
 
-define proxy foward/reverse
-benefits of each
+# A Simple Reverse Proxy in Golang
+A proxy is a device or software which acts as an agent or intimediary  between a host and a network, there are two main types of proxies forward and reverse.
 
-differentiate from forward proxy 
+### Forward proxy
+this proxy is used route traffic between a client and a server, one of the main benefits of this is privacy, as the proxy sends requests in th behalf of the user,this can protect the users privacy.
 
-## explanation of rp
-X-Forwarded-For
-The X-Forwarded-For (XFF) header is used to identify the originating IP address of a client connecting to a web server through an HTTP proxy or a load balancer.
-This header helps maintain a record of the original client’s IP address, which is useful for security audits, logging, and geo-localization, among other purposes.
+### Reverse proxy
+The rest  of the article will focus on reverse proxies which as the name suggests perform the reverse function of the forward proxy, it's function is to serve requests to clients on the behalf of the server and this comes with a number of benefits 
 
-### X-Forwarded-Host
-The X-Forwarded-Host (XFH) header is used to preserve the original Host header sent by the client, before any changes made by the proxy.
-This is particularly useful in situations where a reverse proxy serves multiple backends and needs to forward the original Host information to servers that might generate different responses based on the perceived URL.
+1. load balancing
+2. caching 
+3. rate limiting
+4. security
+5. SSL encryption
+6. Live activity Monitoring and logging
 
-#### uses
-1. Preserving the Original Host Information
-Context: When a request is proxied, the Host header often gets changed to the host of the proxy or the next hop, not the original host that the client intended to contact.
-Use: The X-Forwarded-Host header can preserve the client's intended host, enabling the server handling the request at the end of the proxy chain to know the original host.
-2. Generating Accurate Redirects
-Context: Web applications often generate redirects based on the host name from the incoming request's Host header.
-Use: When behind a proxy, using the X-Forwarded-Host allows the application to generate accurate redirects that reflect the client's perspective, rather than redirecting to URLs based on the proxy's host.
-3. Constructing Links for Responses
-Context: Dynamically generated web pages often include links that should reflect the URL as seen by the user.
-Use: By utilizing the X-Forwarded-Host, web applications can construct links that are valid and meaningful to the end user, even when the application is behind one or more proxies.
-4. Security and Host Header Attacks
-Context: The host header is a common vector for attacks such as cache poisoning and web application routing issues.
-Use: While X-Forwarded-Host can be useful, it must be handled securely. Servers need to be configured to trust this header only when it's known to come from a trusted proxy, to prevent spoofing and related security issues.
-5. Compliance with Virtual Hosting
-Context: In environments where multiple applications or services are hosted (virtual hosting), the destination service is often determined by the Host header.
-Use: The X-Forwarded-Host helps maintain fidelity of this information across proxy layers, ensuring requests are routed internally to the correct service based on the original client request.
+### Differences
+A common point of confusion between these two types of proxies is their position. In client server communication they both sit between the client and the server  the diffference being, forward proxies route behalf of the client while reverse proxies route messages to the client on behalf of the server.
 
 
+## implementation 
+below I implement a simple reverse proxy in golang 
 
-
+Dependencies
+- Docker
+- Go 
+- Make
 
 implementation overview 
-the rp creates a server at rhe port in the config file a new rp to handle requests for each resource 
+the rp creates a server at the port in the config file a new rp to handle requests for each resource 
 
-`NewProxyV0` located in the proxyhandler.go file of the server package creates a proxy givena target url, and endpoint
+## configuration 
+below is an example configuration file 
+
+```yaml
+server:
+  host: "localhost"
+  listen_port: "8080"
+resources:
+  - name: Server1
+    endpoint: /server1
+    destination_url: "http://localhost:9001"
+  - name: Server2
+    endpoint: /server2
+    destination_url: "http://localhost:9002"
+  - name: Server3
+    endpoint: /server3
+    destination_url: "http://localhost:9003"
+```
+we will create a server at port 8080
+we will then route traffic to each of the above endpoints using the servers endpoint
+
+## Creating the proxy
+`NewProxyV0` located in the proxyhandler.go file of the server package creates a proxy given a target url, and endpoint
 
 ```go
 func NewProxyV0(target *url.URL, endpoint string) *httputil.ReverseProxy {
@@ -60,7 +67,7 @@ func NewProxyV0(target *url.URL, endpoint string) *httputil.ReverseProxy {
 
 	// Use the Rewrite function to safely modify the outgoing request
 	proxy.Rewrite = func(proxyReq *httputil.ProxyRequest) {
-		// Example: Setting the X-Example-Header on the outgoing request
+
 		logIncomingRequest(proxyReq.In)
 		proxyReq.Out.URL.Host = target.Host
 		proxyReq.Out.URL.Scheme = target.Scheme
@@ -68,12 +75,15 @@ func NewProxyV0(target *url.URL, endpoint string) *httputil.ReverseProxy {
 		log.Print("orginal host: ", proxyReq.In.Host)
 		proxyReq.Out.Host = target.Host
 
-		// Trim the endpoint prefix if needed
 		originalPath := proxyReq.Out.URL.Path
 		logOutgoingRequest(proxyReq.Out)
 		log.Print("orginal path: ", originalPath)
 		log.Print("new path: ", proxyReq.Out.URL.Path)
 		proxyReq.Out.URL.Path = strings.TrimPrefix(originalPath, endpoint)
+	}
+	proxy.ModifyResponse = func(r *http.Response) error {
+		r.Header.Set("Server", "rp")
+		return nil
 	}
 	return proxy
 }
@@ -90,9 +100,17 @@ we configure transport of the proxy  because
 // This behavior can be managed using [Transport.CloseIdleConnections] method
 // and the [Transport.MaxIdleConnsPerHost] and [Transport.DisableKeepAlives] fields.
 ```
-we then configure the Rewrite function that allows the request to be written as showcased by setting the target host andX forwarded host
+we then configure the `Rewrite` function that allows the request to be written as showcased by setting the target `host` and `X-forwarded-host`
+`
+### X-Forwarded-Host
+The X-Forwarded-Host (XFH) header is used to preserve the original Host header sent by the client, before any changes made by the proxy.
+This is particularly useful in situations where a reverse proxy serves multiple backends and needs to forward the original Host information to servers that might generate different responses based on the perceived URL.
 
-the ``ProxyRequestHandlerV0`` returns a request handler in whcih the proxy ``ServeHTTP`` is called
+Finally we configure the ModifyResponse function and overwrite the Server header sent by the server behind the proxy, additionally er could cache the response recieved by the proxy 
+
+
+
+the ``ProxyRequestHandlerV0`` returns a request handler in which the proxies ``ServeHTTP`` method is called 
 
 ```go
 func ProxyRequestHandlerV0(proxy *httputil.ReverseProxy, url *url.URL, endpoint string) func(http.ResponseWriter, *http.Request) {
@@ -101,7 +119,6 @@ func ProxyRequestHandlerV0(proxy *httputil.ReverseProxy, url *url.URL, endpoint 
 
 		fmt.Printf("[ Reverse Proxy ] Request received at %s at %s\n", r.URL, time.Now().UTC())
 
-		// Note: Modifications moved to the Rewrite function of the ReverseProxy setup
 		proxy.ServeHTTP(w, r)
 
 		duration := time.Since(startTime) // Calculate the duration
@@ -109,9 +126,9 @@ func ProxyRequestHandlerV0(proxy *httputil.ReverseProxy, url *url.URL, endpoint 
 	}
 }
 ```
-this is done so this handler can be  registered on the http request multiplexer 
+this is done so this handler can can measure the time taken to route the request before the handler is registered on the http request multiplexer 
 
-in ther server.go
+in ther server.go file
 ```go
 mux := http.NewServeMux()
 
@@ -139,19 +156,64 @@ mux := http.NewServeMux()
 
 	fmt.Printf("Server configured to listen on %s\n", server.Addr)
 ```
- file we create a server  as well as a proxy and proxy handler for each condigured resource we then start the server 
+ we create a server  as well as a proxy and proxy handler for each configured resource we then start the server 
+
+## Testing
+
+to test the server we will run 3 docker containers each containing a webserver with the make run command 
+
+```bash
+$ make run
+```
+``` makefile
+## run: starts demo http services
+.PHONY: run
+run: run-containers	
 
 
+run-containers:
+	docker run --rm -d -p 9001:80 --name server1 kennethreitz/httpbin
+	docker run --rm -d -p 9002:80 --name server2 kennethreitz/httpbin
+	docker run --rm -d -p 9003:80 --name server3 kennethreitz/httpbin
+```
+we then buld and run the reverse proxy with the path to our config file
+```bash
+$ make run-proxy-server
+```
+```makefile
+## run: starts demo http services
+.PHONY: run-proxy-server
+run-proxy-server:
+	cd cmd && go build -o ../bin/rp && ../bin/rp run -c "../data/config.yaml"
+```
+
+now we can test the reverse proxy by sending a request to the endpoint /server1 which is the first server on our config list
+
+request example 
+```bash
+$ curl -I  http://localhost:8080/server1
+```
+response
+```bash
+HTTP/1.1 200 OK
+Access-Control-Allow-Credentials: true
+Access-Control-Allow-Origin: *
+Content-Length: 9593
+Content-Type: text/html; charset=utf-8
+Date: Sat, 11 May 2024 17:33:06 GMT
+Server: rp
+```
 
 
+### creds 
+---
+hop by hop 
+https://www.ory.sh/hop-by-hop-header-vulnerability-go-standard-library-reverse-proxy/
 
-dependencies to run and test 
+rp 
+https://blog.joshsoftware.com/2021/05/25/simple-and-powerful-reverseproxy-in-go/
 
-explain how requets headers and resp headers are set 
-
-bereak down hop by hop 
-
-end with a test
-
+credited servers 
+https://prabeshthapa.medium.com/learn-reverse-proxy-by-creating-one-yourself-using-go-87be2a29d1e
 
 

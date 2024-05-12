@@ -19,7 +19,6 @@ var (
 )
 
 func ConfigRun(cfg *configs.Configuration) error {
-	// Load configurations from the config file.
 
 	// Create a new router.
 	mux := http.NewServeMux()
@@ -37,7 +36,7 @@ func ConfigRun(cfg *configs.Configuration) error {
 		proxy := NewProxyV0(destURL, resource.Endpoint)
 
 		// Register the handler using ProxyRequestHandlerV0, passing the created proxy, destination URL, and endpoint
-		mux.HandleFunc(resource.Endpoint, ProxyRequestHandlerV0(proxy, destURL, resource.Endpoint))
+		mux.HandleFunc(resource.Endpoint, ProxyRequestHandlerV0(proxy))
 	}
 
 	// Initialize the HTTP server.
